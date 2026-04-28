@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body {
+  background: #fafaf9;
+  color: #1c1917;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Masonry grid via CSS columns — no library required. */
+.feed {
+  column-count: 2;
+  column-gap: 8px;
+  padding: 8px;
+}
+
+@media (min-width: 768px) {
+  .feed { column-count: 3; }
+}
+
+@media (min-width: 1100px) {
+  .feed { column-count: 4; }
+}
+
+.card {
+  break-inside: avoid;
+  display: inline-block;     /* prevents column-break edge cases */
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+/* Hide scrollbars on the detail modal but keep scrolling enabled. */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
