@@ -20,7 +20,7 @@ I wanted to read more papers but kept hitting the same problems:
   given subfield.
 - Aggregator sites push popular papers, not necessarily papers in *my*
   niche.
-- I love how Rednote / TikTok / Pinterest can show me five interesting
+- I love how Rednote can show me five interesting
   things in a row without me having to search. Why doesn't that exist for
   research?
 - I don't want to pay anyone — papers I care about are already free on
