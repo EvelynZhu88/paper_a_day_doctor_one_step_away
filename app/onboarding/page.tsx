@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { authedFetch, getStoredHandle } from '@/components/useUserId'
 
 // Curated set of arXiv categories. Add/remove freely — these are just the
 // most common ones. Full taxonomy at arxiv.org/category_taxonomy.
@@ -56,6 +57,11 @@ export default function OnboardingPage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Bounce to /login if there's no stored handle.
+  useEffect(() => {
+    if (!getStoredHandle()) router.replace('/login')
+  }, [router])
+
   const toggle = (id: string) => {
     setSelected(prev => {
       const next = new Set(prev)
@@ -78,7 +84,7 @@ export default function OnboardingPage() {
       .filter(Boolean)
 
     try {
-      const res = await fetch('/api/onboarding', {
+      const res = await authedFetch('/api/onboarding', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

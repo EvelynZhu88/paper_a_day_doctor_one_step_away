@@ -2,6 +2,7 @@
 // on page hide, so we don't hammer the network on every scroll event.
 
 import { Interaction, EventType } from '@/lib/types'
+import { authHeaders } from './useUserId'
 
 let buffer: Interaction[] = []
 let flushTimer: ReturnType<typeof setInterval> | null = null
@@ -13,7 +14,7 @@ async function flush() {
   try {
     await fetch('/api/interactions', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ events: batch }),
       keepalive: true,
     })

@@ -1,28 +1,25 @@
-// Saves initial user preferences:
-//   - selected arXiv categories
-//   - daily feed size
-//   - exploration rate
-//   - (optional) seed profile vector from arxiv IDs
+// Saves initial preferences for the authenticated user.
 
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { fetchById } from '@/lib/arxiv'
 import { embedBatch, averageVectors } from '@/lib/embeddings'
+import { requireUser } from '@/lib/auth'
 
 type Body = {
   categories: string[]
   daily_count?: number
   exploration_rate?: number
-  seed_arxiv_ids?: string[]   // optional: papers to seed profile vector
+  seed_arxiv_ids?: string[]
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireUser(req)
+  if (auth instanceof NextResponse) return auth
+  const userId = auth
+
   let body: Body
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'invalid json' }, { status: 400 })
-  }
+  try { body = await req.json() } catch { return NextResponse.json({ error: 'invalid json' }, { status: 400 }) }
 
   if (!Array.isArray(body.categories) || body.categories.length === 0) {
     return NextResponse.json({ error: 'pick at least one category' }, { status: 400 })
@@ -39,7 +36,6 @@ export async function POST(req: NextRequest) {
         const vectors = await embedBatch(texts)
         profileVector = averageVectors(vectors)
 
-        // Also stash these seed papers so they show up in the library / dedupe.
         await sb.from('papers').upsert(
           seeds.map((p, i) => ({
             id: p.id,
@@ -69,17 +65,19 @@ export async function POST(req: NextRequest) {
   }
   if (profileVector) update.profile_vector = profileVector
 
-  const { error } = await sb.from('user_preferences').update(update).eq('id', 1)
+  const { error } = await sb
+    .from('user_preferences')
+    .update(update)
+    .eq('user_id', userId)
   if (error) {
     console.error('onboarding update failed:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // Seed category_stats rows for the chosen categories so the bandit has
-  // something to draw from on day one.
+  // seed Thompson Sampling stats for each chosen category
   await sb.from('category_stats').upsert(
-    body.categories.map(c => ({ category: c, alpha: 1.0, beta: 1.0 })),
-    { onConflict: 'category', ignoreDuplicates: true },
+    body.categories.map(c => ({ user_id: userId, category: c, alpha: 1.0, beta: 1.0 })),
+    { onConflict: 'user_id,category', ignoreDuplicates: true },
   )
 
   return NextResponse.json({ ok: true, seeded: profileVector !== null })

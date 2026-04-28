@@ -5,6 +5,7 @@ import Card from './Card'
 import DetailModal from './DetailModal'
 import { Paper } from '@/lib/types'
 import { logInteraction, startInteractionLogger } from './interactionLogger'
+import { authedFetch } from './useUserId'
 
 export default function Feed() {
   const [papers, setPapers] = useState<Paper[]>([])
@@ -21,7 +22,7 @@ export default function Feed() {
   // Fetch the feed on mount
   useEffect(() => {
     let cancelled = false
-    fetch('/api/feed')
+    authedFetch('/api/feed')
       .then(r => r.json())
       .then(data => {
         if (cancelled) return

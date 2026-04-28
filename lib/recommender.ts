@@ -1,32 +1,30 @@
-// Builds the daily personalized feed.
+// Builds the personalized feed for a specific user.
 // Strategy:
-//   1. Pull user prefs + per-category Thompson Sampling stats from Supabase.
+//   1. Pull this user's prefs + their per-category Thompson Sampling stats.
 //   2. Use Thompson Sampling to allocate feed slots across the user's
 //      selected categories (handles explore-vs-exploit at the topic level).
 //   3. Within each category, fetch top-K papers ranked by cosine similarity
-//      to the user's profile vector. Falls back to recency if no profile yet.
+//      to this user's profile vector. Falls back to recency if no profile.
 //   4. Mix in a fraction of pure-random papers (exploration_rate) to keep
 //      the feed from becoming an echo chamber.
-//   5. Deduplicate, shuffle a bit, return.
+//   5. Deduplicate, interleave, return.
 
 import { supabaseAdmin } from './supabase'
 import { allocateSlots } from './bandit'
 import { Paper, CategoryStats } from './types'
 
-export async function buildFeed(): Promise<Paper[]> {
+export async function buildFeed(userId: string): Promise<Paper[]> {
   const sb = supabaseAdmin()
 
   const { data: prefs, error: pErr } = await sb
     .from('user_preferences')
     .select('*')
-    .eq('id', 1)
+    .eq('user_id', userId)
     .single()
-  if (pErr || !prefs) throw new Error('user_preferences row missing — run onboarding first')
+  if (pErr || !prefs) throw new Error('no user_preferences row — run onboarding first')
 
   const categories: string[] = prefs.categories ?? []
-  if (categories.length === 0) {
-    return []  // user hasn't picked any categories yet
-  }
+  if (categories.length === 0) return []
 
   const dailyCount: number = prefs.daily_count ?? 30
   const explorationRate: number = prefs.exploration_rate ?? 0.15
@@ -35,20 +33,21 @@ export async function buildFeed(): Promise<Paper[]> {
   const exploreCount = Math.round(dailyCount * explorationRate)
   const personalizedCount = dailyCount - exploreCount
 
-  // Thompson Sampling on categories
-  const { data: stats } = await sb.from('category_stats').select('*')
+  const { data: stats } = await sb
+    .from('category_stats')
+    .select('*')
+    .eq('user_id', userId)
   const statsList: CategoryStats[] = stats ?? []
   const slots = allocateSlots(categories, statsList, personalizedCount)
 
-  // Personalized fetch per category
   const personalized: Paper[] = []
   for (const category of categories) {
     const k = slots[category] ?? 0
     if (k === 0) continue
 
     if (profile && profile.length > 0) {
-      // RPC: cosine-similar papers from this single category
       const { data, error } = await sb.rpc('recommend_by_similarity', {
+        p_user_id: userId,
         user_vec: profile,
         user_cats: [category],
         k,
@@ -59,13 +58,15 @@ export async function buildFeed(): Promise<Paper[]> {
       }
       personalized.push(...((data ?? []) as Paper[]))
     } else {
-      // No profile yet — fall back to recency for this category
-      const { data, error } = await sb
+      const seenIds = await getSeenPaperIds(sb, userId)
+      let q = sb
         .from('papers')
         .select('*')
         .contains('categories', [category])
         .order('published_at', { ascending: false })
         .limit(k)
+      if (seenIds.length > 0) q = q.not('id', 'in', `(${seenIds.map(s => `"${s}"`).join(',')})`)
+      const { data, error } = await q
       if (error) {
         console.error(`recency fallback error for ${category}:`, error)
         continue
@@ -74,10 +75,10 @@ export async function buildFeed(): Promise<Paper[]> {
     }
   }
 
-  // Exploration: random papers from any of the user's categories
   let explore: Paper[] = []
   if (exploreCount > 0) {
     const { data, error } = await sb.rpc('recommend_random', {
+      p_user_id: userId,
       user_cats: categories,
       k: exploreCount,
     })
@@ -85,11 +86,9 @@ export async function buildFeed(): Promise<Paper[]> {
     explore = (data ?? []) as Paper[]
   }
 
-  // Dedupe by id, then interleave a bit so explore is sprinkled through.
   const seen = new Set<string>()
   const merged: Paper[] = []
-  const both = interleave(personalized, explore)
-  for (const p of both) {
+  for (const p of interleave(personalized, explore)) {
     if (!seen.has(p.id)) {
       seen.add(p.id)
       merged.push(p)
@@ -98,19 +97,24 @@ export async function buildFeed(): Promise<Paper[]> {
   return merged.slice(0, dailyCount)
 }
 
-// Parse Supabase's pgvector column. It may come back as a JSON array, a
-// pgvector string like "[0.1,0.2,...]", or null.
+async function getSeenPaperIds(sb: ReturnType<typeof supabaseAdmin>, userId: string): Promise<string[]> {
+  const { data } = await sb
+    .from('interactions')
+    .select('paper_id')
+    .eq('user_id', userId)
+    .in('event_type', ['tap', 'save', 'pdf_open'])
+    .limit(2000)
+  return Array.from(new Set((data ?? []).map(r => r.paper_id).filter(Boolean) as string[]))
+}
+
 function parseVector(v: unknown): number[] | null {
   if (v == null) return null
   if (Array.isArray(v)) return v as number[]
   if (typeof v === 'string') {
     try {
-      const cleaned = v.replace(/^\[/, '[').replace(/\]$/, ']')
-      const parsed = JSON.parse(cleaned)
+      const parsed = JSON.parse(v)
       if (Array.isArray(parsed)) return parsed as number[]
-    } catch {
-      return null
-    }
+    } catch { /* fall through */ }
   }
   return null
 }

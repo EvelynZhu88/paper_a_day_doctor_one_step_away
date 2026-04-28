@@ -1,15 +1,15 @@
 // Daily arXiv ingestion. Triggered by Vercel cron (vercel.json).
-// 1. Reads which categories the user follows.
+// 1. Reads the UNION of all users' followed categories.
 // 2. Pulls the latest papers in those categories from arXiv.
 // 3. Embeds each abstract via Hugging Face.
-// 4. Upserts into Supabase.
+// 4. Upserts into Supabase. Papers are global — shared across all users.
 
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { fetchRecentPapers } from '@/lib/arxiv'
 import { embedText } from '@/lib/embeddings'
 
-export const maxDuration = 300  // give it up to 5 min on Vercel Hobby
+export const maxDuration = 300
 
 export async function GET(req: NextRequest) {
   const auth = req.headers.get('authorization')
@@ -19,21 +19,18 @@ export async function GET(req: NextRequest) {
 
   const sb = supabaseAdmin()
 
-  const { data: prefs, error } = await sb
-    .from('user_preferences')
-    .select('categories')
-    .eq('id', 1)
-    .single()
-  if (error || !prefs?.categories?.length) {
-    return NextResponse.json(
-      { error: 'no categories configured — run onboarding first' },
-      { status: 400 },
-    )
+  const { data: catRows, error } = await sb.rpc('all_followed_categories')
+  if (error) {
+    console.error('all_followed_categories failed:', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+  const categories = Array.from(new Set((catRows ?? []).map((r: any) => r.category).filter(Boolean)))
+  if (categories.length === 0) {
+    return NextResponse.json({ message: 'no users with categories yet — nothing to fetch' })
   }
 
-  const papers = await fetchRecentPapers(prefs.categories, 50)
+  const papers = await fetchRecentPapers(categories, 50)
 
-  // Skip papers we already have
   const ids = papers.map(p => p.id)
   const { data: existing } = await sb.from('papers').select('id').in('id', ids)
   const have = new Set((existing ?? []).map(r => r.id))
@@ -69,11 +66,11 @@ export async function GET(req: NextRequest) {
       console.error('embed failed for', p.id, err)
       failed++
     }
-    // small breather for HF rate limit
     await new Promise(r => setTimeout(r, 350))
   }
 
   return NextResponse.json({
+    categories: categories.length,
     fetched: papers.length,
     new: fresh.length,
     ingested,
@@ -81,8 +78,4 @@ export async function GET(req: NextRequest) {
   })
 }
 
-// Allow manual trigger from a browser during dev: POST /api/cron/ingest
-// with a matching CRON_SECRET. Cleaner than relying only on the cron.
-export async function POST(req: NextRequest) {
-  return GET(req)
-}
+export async function POST(req: NextRequest) { return GET(req) }
