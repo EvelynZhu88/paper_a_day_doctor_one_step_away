@@ -1,52 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { authedFetch, getStoredHandle } from '@/components/useUserId'
-
-// Curated set of arXiv categories. Add/remove freely — these are just the
-// most common ones. Full taxonomy at arxiv.org/category_taxonomy.
-const CATEGORY_GROUPS: { label: string; cats: { id: string; name: string }[] }[] = [
-  {
-    label: 'Computer Science',
-    cats: [
-      { id: 'cs.LG', name: 'Machine Learning' },
-      { id: 'cs.CL', name: 'Computation and Language (NLP)' },
-      { id: 'cs.CV', name: 'Computer Vision' },
-      { id: 'cs.AI', name: 'Artificial Intelligence' },
-      { id: 'cs.RO', name: 'Robotics' },
-      { id: 'cs.NE', name: 'Neural and Evolutionary Computing' },
-      { id: 'cs.IR', name: 'Information Retrieval' },
-      { id: 'cs.HC', name: 'Human-Computer Interaction' },
-      { id: 'cs.CR', name: 'Cryptography & Security' },
-      { id: 'cs.DC', name: 'Distributed Computing' },
-      { id: 'cs.DS', name: 'Data Structures & Algorithms' },
-    ],
-  },
-  {
-    label: 'Statistics',
-    cats: [
-      { id: 'stat.ML', name: 'Machine Learning (Stats)' },
-      { id: 'stat.ME', name: 'Methodology' },
-      { id: 'stat.AP', name: 'Applications' },
-    ],
-  },
-  {
-    label: 'Math',
-    cats: [
-      { id: 'math.OC', name: 'Optimization & Control' },
-      { id: 'math.PR', name: 'Probability' },
-      { id: 'math.ST', name: 'Statistics Theory' },
-    ],
-  },
-  {
-    label: 'Quantitative Biology',
-    cats: [
-      { id: 'q-bio.NC', name: 'Neurons & Cognition' },
-      { id: 'q-bio.QM', name: 'Quantitative Methods' },
-    ],
-  },
-]
+import { CATEGORY_GROUPS, ArxivCat } from '@/lib/arxivCategories'
 
 export default function OnboardingPage() {
   const router = useRouter()
@@ -56,6 +13,11 @@ export default function OnboardingPage() {
   const [explorationRate, setExplorationRate] = useState(0.15)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const [filter, setFilter] = useState('')
+  const [openGroups, setOpenGroups] = useState<Set<string>>(
+    () => new Set(CATEGORY_GROUPS.filter(g => g.defaultOpen).map(g => g.label)),
+  )
 
   // Bounce to /login if there's no stored handle.
   useEffect(() => {
@@ -69,6 +31,31 @@ export default function OnboardingPage() {
       return next
     })
   }
+
+  const toggleGroup = (label: string) => {
+    setOpenGroups(prev => {
+      const next = new Set(prev)
+      next.has(label) ? next.delete(label) : next.add(label)
+      return next
+    })
+  }
+
+  // Filter cats by query (matches id or name, case-insensitive).
+  const matchesFilter = (cat: ArxivCat, q: string) => {
+    if (!q) return true
+    const ql = q.toLowerCase()
+    return cat.id.toLowerCase().includes(ql) || cat.name.toLowerCase().includes(ql)
+  }
+
+  const filteredGroups = useMemo(() => {
+    return CATEGORY_GROUPS.map(g => ({
+      ...g,
+      cats: g.cats.filter(c => matchesFilter(c, filter)),
+    })).filter(g => g.cats.length > 0)
+  }, [filter])
+
+  const isFiltering = filter.trim().length > 0
+  const totalSelected = selected.size
 
   const submit = async () => {
     setError(null)
@@ -114,34 +101,75 @@ export default function OnboardingPage() {
       </p>
 
       <section className="mt-7">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-muted mb-3">
-          Categories
-        </h2>
-        {CATEGORY_GROUPS.map(group => (
-          <div key={group.label} className="mb-5">
-            <div className="text-xs text-muted mb-2">{group.label}</div>
-            <div className="flex flex-wrap gap-2">
-              {group.cats.map(c => {
-                const active = selected.has(c.id)
-                return (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => toggle(c.id)}
-                    className={`px-3 py-1.5 rounded-full text-sm border transition ${
-                      active
-                        ? 'bg-ink text-white border-ink'
-                        : 'bg-white text-ink border-stone-300 hover:border-stone-500'
-                    }`}
-                  >
-                    <span className="font-mono text-xs opacity-70 mr-1.5">{c.id}</span>
-                    {c.name}
-                  </button>
-                )
-              })}
+        <div className="flex items-baseline justify-between mb-2">
+          <h2 className="text-sm font-medium uppercase tracking-wide text-muted">
+            Categories
+          </h2>
+          <span className="text-xs text-muted">
+            {totalSelected} selected
+          </span>
+        </div>
+
+        <input
+          type="text"
+          value={filter}
+          onChange={e => setFilter(e.target.value)}
+          placeholder="Search categories (e.g. robotics, cs.LG, optimization)…"
+          className="w-full border border-stone-300 rounded-lg p-2.5 text-sm focus:outline-none focus:border-ink mb-3"
+        />
+
+        {filteredGroups.length === 0 && (
+          <p className="text-sm text-muted py-4">No categories match.</p>
+        )}
+
+        {filteredGroups.map(group => {
+          const isOpen = isFiltering || openGroups.has(group.label)
+          const groupSelectedCount = group.cats.filter(c => selected.has(c.id)).length
+          return (
+            <div key={group.label} className="mb-2 border border-stone-200 rounded-lg overflow-hidden">
+              <button
+                type="button"
+                onClick={() => !isFiltering && toggleGroup(group.label)}
+                className="w-full flex items-center justify-between px-3 py-2.5 bg-stone-50 hover:bg-stone-100 transition"
+                disabled={isFiltering}
+              >
+                <span className="text-sm font-medium text-ink">
+                  {group.label}
+                  <span className="text-xs text-muted ml-2">
+                    ({group.cats.length})
+                  </span>
+                </span>
+                <span className="text-xs text-muted">
+                  {groupSelectedCount > 0 && `${groupSelectedCount} selected · `}
+                  {isOpen ? '▾' : '▸'}
+                </span>
+              </button>
+
+              {isOpen && (
+                <div className="flex flex-wrap gap-2 p-3 bg-white">
+                  {group.cats.map(c => {
+                    const active = selected.has(c.id)
+                    return (
+                      <button
+                        key={`${group.label}-${c.id}`}
+                        type="button"
+                        onClick={() => toggle(c.id)}
+                        className={`px-3 py-1.5 rounded-full text-sm border transition ${
+                          active
+                            ? 'bg-ink text-white border-ink'
+                            : 'bg-white text-ink border-stone-300 hover:border-stone-500'
+                        }`}
+                      >
+                        <span className="font-mono text-xs opacity-70 mr-1.5">{c.id}</span>
+                        {c.name}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          )
+        })}
       </section>
 
       <section className="mt-8">
@@ -201,9 +229,8 @@ export default function OnboardingPage() {
       </button>
 
       <p className="text-xs text-muted mt-4">
-        After saving, hit <span className="font-mono">/api/cron/ingest</span> once
-        (with your CRON_SECRET) to populate today's papers, or wait for the daily
-        cron to fire.
+        After saving, the daily cron pulls fresh papers in your categories every
+        morning. New users will need a manual ingest trigger or just wait for tomorrow.
       </p>
     </main>
   )
