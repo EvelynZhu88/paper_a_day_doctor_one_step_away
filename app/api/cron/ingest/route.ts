@@ -24,7 +24,13 @@ export async function GET(req: NextRequest) {
     console.error('all_followed_categories failed:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
-  const categories = Array.from(new Set((catRows ?? []).map((r: any) => r.category).filter(Boolean)))
+  const categories: string[] = Array.from(
+    new Set(
+      ((catRows ?? []) as { category: string }[])
+        .map(r => r.category)
+        .filter((c): c is string => typeof c === 'string' && c.length > 0),
+    ),
+  )
   if (categories.length === 0) {
     return NextResponse.json({ message: 'no users with categories yet — nothing to fetch' })
   }
