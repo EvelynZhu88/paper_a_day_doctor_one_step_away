@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="cover.png" alt="Paper Feed" width="220" />
+</div>
+
 # Paper a Day, Doctor One Step Away
 
 > ### 🌐 [paper-a-day-doctor-one-step-away.vercel.app](https://paper-a-day-doctor-one-step-away.vercel.app)
