@@ -58,6 +58,8 @@ export async function GET(req: NextRequest) {
           primary_category: p.primary_category,
           pdf_url: p.pdf_url,
           published_at: p.published_at,
+          journal_ref: p.journal_ref,
+          comment: p.comment,
           embedding,
         },
         { onConflict: 'id' },

@@ -6,11 +6,38 @@ import { fetchById } from '@/lib/arxiv'
 import { embedBatch, averageVectors } from '@/lib/embeddings'
 import { requireUser } from '@/lib/auth'
 
+export const dynamic = 'force-dynamic'
+
 type Body = {
   categories: string[]
   daily_count?: number
   exploration_rate?: number
   seed_arxiv_ids?: string[]
+}
+
+// Returns the user's current preferences so the settings/onboarding page
+// can pre-fill instead of starting blank.
+export async function GET(req: NextRequest) {
+  const auth = await requireUser(req)
+  if (auth instanceof NextResponse) return auth
+  const userId = auth
+
+  const sb = supabaseAdmin()
+  const { data, error } = await sb
+    .from('user_preferences')
+    .select('categories, daily_count, exploration_rate, onboarded')
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (error) {
+    console.error('onboarding GET failed:', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+  return NextResponse.json({
+    categories: data?.categories ?? [],
+    daily_count: data?.daily_count ?? 30,
+    exploration_rate: data?.exploration_rate ?? 0.15,
+    onboarded: !!data?.onboarded,
+  })
 }
 
 export async function POST(req: NextRequest) {
@@ -46,6 +73,8 @@ export async function POST(req: NextRequest) {
             primary_category: p.primary_category,
             pdf_url: p.pdf_url,
             published_at: p.published_at,
+            journal_ref: p.journal_ref,
+            comment: p.comment,
             embedding: vectors[i]?.length ? vectors[i] : null,
           })),
           { onConflict: 'id' },

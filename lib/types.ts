@@ -7,6 +7,8 @@ export type Paper = {
   primary_category: string | null
   pdf_url: string | null
   published_at: string | null
+  journal_ref?: string | null
+  comment?: string | null
   similarity?: number
 }
 

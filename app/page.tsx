@@ -83,6 +83,7 @@ export default function Home() {
             <p className="text-[11px] text-muted">@{handle}</p>
           </div>
           <div className="flex items-center gap-3">
+            <a href="/library" className="text-sm text-muted hover:text-ink">Library</a>
             <a href="/onboarding" className="text-sm text-muted hover:text-ink">Settings</a>
             <button
               onClick={() => { signOut(); router.replace('/login') }}

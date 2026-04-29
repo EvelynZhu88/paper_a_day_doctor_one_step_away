@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { Paper } from '@/lib/types'
 import { logInteraction } from './interactionLogger'
+import { extractVenue } from '@/lib/venue'
 
 export default function DetailModal({
   paper,
@@ -80,6 +81,15 @@ export default function DetailModal({
 
           <h2 className="text-xl font-semibold leading-snug text-ink">{paper.title}</h2>
 
+          {(() => {
+            const venue = extractVenue(paper.journal_ref, paper.comment)
+            return venue ? (
+              <p className="text-sm text-emerald-700 mt-2 font-medium">
+                📍 Published at {venue}
+              </p>
+            ) : null
+          })()}
+
           <p className="text-sm text-muted mt-2">
             {paper.authors.join(', ')}
           </p>
@@ -90,6 +100,11 @@ export default function DetailModal({
                 month: 'short',
                 day: 'numeric',
               })}
+            </p>
+          )}
+          {paper.comment && (
+            <p className="text-xs text-muted mt-2 italic">
+              {paper.comment}
             </p>
           )}
 

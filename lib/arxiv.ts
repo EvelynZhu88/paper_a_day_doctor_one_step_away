@@ -9,6 +9,8 @@ export type ArxivPaper = {
   primary_category: string | null
   pdf_url: string | null
   published_at: string | null
+  journal_ref: string | null
+  comment: string | null
 }
 
 const parser = new XMLParser({
@@ -72,6 +74,10 @@ function parseEntry(e: any): ArxivPaper | null {
       categories[0] ||
       null
 
+    // arxiv:journal_ref + arxiv:comment are the venue/conference hints.
+    const journal_ref = stringOrNull(e['arxiv:journal_ref'])
+    const comment = stringOrNull(e['arxiv:comment'])
+
     return {
       id,
       title: String(e.title || '').replace(/\s+/g, ' ').trim(),
@@ -81,6 +87,8 @@ function parseEntry(e: any): ArxivPaper | null {
       primary_category: primary,
       pdf_url: pdfLink?.['@_href'] || null,
       published_at: e.published || null,
+      journal_ref,
+      comment,
     }
   } catch (err) {
     console.error('failed to parse arxiv entry:', err)
@@ -91,6 +99,19 @@ function parseEntry(e: any): ArxivPaper | null {
 function toArray<T>(v: T | T[] | undefined | null): T[] {
   if (v == null) return []
   return Array.isArray(v) ? v : [v]
+}
+
+function stringOrNull(v: unknown): string | null {
+  if (v == null) return null
+  if (typeof v === 'string') {
+    const trimmed = v.replace(/\s+/g, ' ').trim()
+    return trimmed.length > 0 ? trimmed : null
+  }
+  // fast-xml-parser sometimes wraps text nodes in objects with #text key
+  if (typeof v === 'object' && v !== null && '#text' in v) {
+    return stringOrNull((v as Record<string, unknown>)['#text'])
+  }
+  return null
 }
 
 function normalizeId(raw: string): string {

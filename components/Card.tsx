@@ -1,6 +1,7 @@
 'use client'
 
 import { Paper } from '@/lib/types'
+import { extractVenue } from '@/lib/venue'
 
 const CATEGORY_COLORS: Record<string, string> = {
   'cs.LG': 'bg-rose-100 text-rose-800',
@@ -35,6 +36,7 @@ export default function Card({
   onTap: (paper: Paper) => void
 }) {
   const tldr = paper.abstract?.split('. ').slice(0, 2).join('. ') + (paper.abstract ? '.' : '')
+  const venue = extractVenue(paper.journal_ref, paper.comment)
 
   return (
     <div
@@ -52,6 +54,12 @@ export default function Card({
       <h3 className="text-[15px] font-semibold leading-snug text-ink line-clamp-3">
         {paper.title}
       </h3>
+
+      {venue && (
+        <p className="text-[11px] text-emerald-700 mt-1.5 line-clamp-1">
+          📍 {venue}
+        </p>
+      )}
 
       {tldr && (
         <p className="text-[12.5px] text-stone-700 mt-2 leading-snug line-clamp-4">

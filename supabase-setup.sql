@@ -32,6 +32,8 @@ create table if not exists papers (
   primary_category text,
   pdf_url text,
   published_at timestamptz,
+  journal_ref text,                          -- e.g. "NeurIPS 2024" if published
+  comment text,                              -- author comment, often venue info
   embedding vector(384),
   created_at timestamptz default now()
 );
@@ -118,11 +120,13 @@ create or replace function recommend_by_similarity(
 ) returns table (
   id text, title text, authors text[], abstract text,
   categories text[], primary_category text,
-  pdf_url text, published_at timestamptz, similarity real
+  pdf_url text, published_at timestamptz,
+  journal_ref text, comment text,
+  similarity real
 ) as $$
   select
     p.id, p.title, p.authors, p.abstract, p.categories, p.primary_category,
-    p.pdf_url, p.published_at,
+    p.pdf_url, p.published_at, p.journal_ref, p.comment,
     1 - (p.embedding <=> user_vec) as similarity
   from papers p
   where p.embedding is not null
@@ -146,11 +150,12 @@ create or replace function recommend_random(
 ) returns table (
   id text, title text, authors text[], abstract text,
   categories text[], primary_category text,
-  pdf_url text, published_at timestamptz
+  pdf_url text, published_at timestamptz,
+  journal_ref text, comment text
 ) as $$
   select
     p.id, p.title, p.authors, p.abstract, p.categories, p.primary_category,
-    p.pdf_url, p.published_at
+    p.pdf_url, p.published_at, p.journal_ref, p.comment
   from papers p
   where p.categories && user_cats
     and p.id not in (

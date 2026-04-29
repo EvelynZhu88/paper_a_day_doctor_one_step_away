@@ -13,15 +13,42 @@ export default function OnboardingPage() {
   const [explorationRate, setExplorationRate] = useState(0.15)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isReturning, setIsReturning] = useState(false)
+  const [loaded, setLoaded] = useState(false)
 
   const [filter, setFilter] = useState('')
   const [openGroups, setOpenGroups] = useState<Set<string>>(
     () => new Set(CATEGORY_GROUPS.filter(g => g.defaultOpen).map(g => g.label)),
   )
 
-  // Bounce to /login if there's no stored handle.
+  // Bounce to /login if there's no stored handle, then load existing prefs.
   useEffect(() => {
-    if (!getStoredHandle()) router.replace('/login')
+    if (!getStoredHandle()) {
+      router.replace('/login')
+      return
+    }
+    let cancelled = false
+    authedFetch('/api/onboarding')
+      .then(r => r.json())
+      .then(data => {
+        if (cancelled) return
+        if (Array.isArray(data.categories) && data.categories.length > 0) {
+          setSelected(new Set(data.categories))
+          setIsReturning(!!data.onboarded)
+          // auto-expand any group that contains a selected cat so they're visible
+          const groupsWithSelections = new Set<string>(
+            CATEGORY_GROUPS.filter(g =>
+              g.cats.some(c => data.categories.includes(c.id)),
+            ).map(g => g.label),
+          )
+          setOpenGroups(prev => new Set([...prev, ...groupsWithSelections]))
+        }
+        if (typeof data.daily_count === 'number') setDailyCount(data.daily_count)
+        if (typeof data.exploration_rate === 'number') setExplorationRate(data.exploration_rate)
+      })
+      .catch(err => console.error('failed to load existing prefs:', err))
+      .finally(() => !cancelled && setLoaded(true))
+    return () => { cancelled = true }
   }, [router])
 
   const toggle = (id: string) => {
@@ -94,10 +121,18 @@ export default function OnboardingPage() {
 
   return (
     <main className="max-w-screen-sm mx-auto px-5 py-8">
-      <h1 className="text-2xl font-semibold tracking-tight">Set up your feed</h1>
+      <div className="flex items-baseline justify-between">
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {isReturning ? 'Settings' : 'Set up your feed'}
+        </h1>
+        {isReturning && (
+          <a href="/" className="text-sm text-muted hover:text-ink">← Back to feed</a>
+        )}
+      </div>
       <p className="text-muted mt-2 text-sm">
-        Pick the arXiv categories you want to follow. The feed personalizes itself
-        as you tap, save, and read papers.
+        {isReturning
+          ? 'Update which arXiv categories your feed pulls from. Your reading history and learned profile are preserved.'
+          : 'Pick the arXiv categories you want to follow. The feed personalizes itself as you tap, save, and read papers.'}
       </p>
 
       <section className="mt-7">
@@ -222,16 +257,18 @@ export default function OnboardingPage() {
       <button
         type="button"
         onClick={submit}
-        disabled={submitting}
+        disabled={submitting || !loaded}
         className="mt-7 w-full bg-ink text-white rounded-lg py-3 text-sm font-medium disabled:opacity-50"
       >
-        {submitting ? 'Saving…' : 'Save and view feed'}
+        {submitting ? 'Saving…' : isReturning ? 'Save changes' : 'Save and view feed'}
       </button>
 
-      <p className="text-xs text-muted mt-4">
-        After saving, the daily cron pulls fresh papers in your categories every
-        morning. New users will need a manual ingest trigger or just wait for tomorrow.
-      </p>
+      {!isReturning && (
+        <p className="text-xs text-muted mt-4">
+          After saving, the daily cron pulls fresh papers in your categories every
+          morning. New users will need a manual ingest trigger or just wait for tomorrow.
+        </p>
+      )}
     </main>
   )
 }
