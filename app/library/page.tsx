@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { authedFetch, getStoredHandle } from '@/components/useUserId'
+import AppHeader from '@/components/AppHeader'
 import Card from '@/components/Card'
 import DetailModal from '@/components/DetailModal'
 import { Paper } from '@/lib/types'
@@ -47,19 +48,18 @@ export default function LibraryPage() {
 
   return (
     <main className="min-h-screen">
-      <header className="sticky top-0 z-10 bg-bg/85 backdrop-blur border-b border-stone-200">
-        <div className="max-w-screen-md mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-baseline gap-3">
-            <a href="/" className="text-sm text-muted hover:text-ink">←</a>
-            <h1 className="text-lg font-semibold tracking-tight">Library</h1>
-          </div>
+      <AppHeader active="library" />
+
+      <div className="max-w-screen-md mx-auto px-4 pt-4 pb-2">
+        <div className="flex items-baseline justify-between mb-3">
+          <h2 className="text-xl font-semibold tracking-tight">Library</h2>
         </div>
-        <div className="max-w-screen-md mx-auto px-4 pb-2 flex gap-2">
+        <div className="flex gap-2 overflow-x-auto">
           {TABS.map(t => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`px-3 py-1 rounded-full text-sm transition ${
+              className={`px-3 py-1 rounded-full text-sm transition shrink-0 ${
                 tab === t.id
                   ? 'bg-ink text-white'
                   : 'bg-white border border-stone-300 text-ink hover:border-ink'
@@ -69,7 +69,7 @@ export default function LibraryPage() {
             </button>
           ))}
         </div>
-      </header>
+      </div>
 
       {loading && (
         <div className="max-w-screen-md mx-auto px-4 py-12 text-center text-muted text-sm">

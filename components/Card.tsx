@@ -56,9 +56,9 @@ export default function Card({
       </h3>
 
       {venue && (
-        <p className="text-[11px] text-emerald-700 mt-1.5 line-clamp-1">
-          📍 {venue}
-        </p>
+        <span className="inline-block mt-1.5 text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+          {venue}
+        </span>
       )}
 
       {tldr && (

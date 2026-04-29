@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { authedFetch, getStoredHandle } from '@/components/useUserId'
+import AppHeader from '@/components/AppHeader'
 import { CATEGORY_GROUPS, ArxivCat } from '@/lib/arxivCategories'
 
 export default function OnboardingPage() {
@@ -120,15 +121,13 @@ export default function OnboardingPage() {
   }
 
   return (
-    <main className="max-w-screen-sm mx-auto px-5 py-8">
-      <div className="flex items-baseline justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {isReturning ? 'Settings' : 'Set up your feed'}
-        </h1>
-        {isReturning && (
-          <a href="/" className="text-sm text-muted hover:text-ink">← Back to feed</a>
-        )}
-      </div>
+    <main className="min-h-screen">
+      {isReturning && <AppHeader active="settings" />}
+
+      <div className="max-w-screen-sm mx-auto px-5 py-8">
+      <h1 className="text-2xl font-semibold tracking-tight">
+        {isReturning ? 'Settings' : 'Set up your feed'}
+      </h1>
       <p className="text-muted mt-2 text-sm">
         {isReturning
           ? 'Update which arXiv categories your feed pulls from. Your reading history and learned profile are preserved.'
@@ -269,6 +268,7 @@ export default function OnboardingPage() {
           morning. New users will need a manual ingest trigger or just wait for tomorrow.
         </p>
       )}
+      </div>
     </main>
   )
 }

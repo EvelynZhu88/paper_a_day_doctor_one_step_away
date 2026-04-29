@@ -18,8 +18,11 @@
 alter table papers add column if not exists journal_ref text;
 alter table papers add column if not exists comment text;
 
--- Rebuild the recommender RPCs to return the new columns. CREATE OR REPLACE
--- is safe — it doesn't drop dependent objects.
+-- Rebuild the recommender RPCs to return the new columns. Postgres won't let
+-- CREATE OR REPLACE change the return shape, so we drop first.
+
+drop function if exists recommend_by_similarity(text, vector, text[], int);
+drop function if exists recommend_random(text, text[], int);
 
 create or replace function recommend_by_similarity(
   p_user_id text, user_vec vector(384), user_cats text[], k int default 30

@@ -84,8 +84,11 @@ export default function DetailModal({
           {(() => {
             const venue = extractVenue(paper.journal_ref, paper.comment)
             return venue ? (
-              <p className="text-sm text-emerald-700 mt-2 font-medium">
-                📍 Published at {venue}
+              <p className="text-sm text-emerald-800 mt-2">
+                <span className="text-xs uppercase tracking-wide text-emerald-700 font-medium mr-2">
+                  Published at
+                </span>
+                {venue}
               </p>
             ) : null
           })()}

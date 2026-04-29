@@ -8,6 +8,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Feed from '@/components/Feed'
+import AppHeader from '@/components/AppHeader'
 import { authedFetch, getStoredHandle, useUserId } from '@/components/useUserId'
 
 export default function Home() {
@@ -76,24 +77,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen">
-      <header className="sticky top-0 z-10 bg-bg/85 backdrop-blur border-b border-stone-200">
-        <div className="max-w-screen-md mx-auto px-4 py-3 flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-semibold tracking-tight">Paper Feed</h1>
-            <p className="text-[11px] text-muted">@{handle}</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <a href="/library" className="text-sm text-muted hover:text-ink">Library</a>
-            <a href="/onboarding" className="text-sm text-muted hover:text-ink">Settings</a>
-            <button
-              onClick={() => { signOut(); router.replace('/login') }}
-              className="text-sm text-muted hover:text-ink"
-            >
-              Sign out
-            </button>
-          </div>
-        </div>
-      </header>
+      <AppHeader active="feed" />
       <Feed />
     </main>
   )
