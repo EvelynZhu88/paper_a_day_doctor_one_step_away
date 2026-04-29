@@ -3,7 +3,9 @@
 // Free tier limit is generous; ingesting ~50 abstracts/day is well within it.
 
 const HF_MODEL = 'sentence-transformers/all-MiniLM-L6-v2'
-const HF_URL = `https://api-inference.huggingface.co/pipeline/feature-extraction/${HF_MODEL}`
+// HF migrated from api-inference.huggingface.co (deprecated) to the Inference
+// Providers router. The hf-inference provider is the free first-party one.
+const HF_URL = `https://router.huggingface.co/hf-inference/models/${HF_MODEL}/pipeline/feature-extraction`
 
 export async function embedText(text: string): Promise<number[]> {
   const key = process.env.HUGGINGFACE_API_KEY
