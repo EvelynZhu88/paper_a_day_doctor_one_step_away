@@ -9,6 +9,7 @@ export type Paper = {
   published_at: string | null
   journal_ref?: string | null
   comment?: string | null
+  citation_count?: number | null
   similarity?: number
 }
 

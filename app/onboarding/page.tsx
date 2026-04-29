@@ -16,6 +16,9 @@ export default function OnboardingPage() {
   const [error, setError] = useState<string | null>(null)
   const [isReturning, setIsReturning] = useState(false)
   const [loaded, setLoaded] = useState(false)
+  const [seedClassics, setSeedClassics] = useState(true)
+  const [seedingStatus, setSeedingStatus] = useState<string | null>(null)
+  const [seedingNow, setSeedingNow] = useState(false)
 
   const [filter, setFilter] = useState('')
   const [openGroups, setOpenGroups] = useState<Set<string>>(
@@ -111,12 +114,62 @@ export default function OnboardingPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'failed')
+
+      // For first-time setup, optionally seed foundational papers in the
+      // chosen categories. Done synchronously so the user lands on the feed
+      // with content already there.
+      if (!isReturning && seedClassics) {
+        try {
+          setSeedingStatus('Pulling foundational papers from Semantic Scholar — this can take 1–2 minutes…')
+          const seedRes = await authedFetch('/api/seed-classics', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ categories: Array.from(selected) }),
+          })
+          const seedData = await seedRes.json()
+          if (seedRes.ok) {
+            setSeedingStatus(`Seeded ${seedData.ingested ?? 0} foundational papers.`)
+          } else {
+            console.warn('seed-classics failed (non-fatal):', seedData)
+          }
+        } catch (e) {
+          console.warn('seed-classics failed (non-fatal):', e)
+        }
+      }
+
       router.push('/')
       router.refresh()
     } catch (err: any) {
       setError(err.message ?? 'Something went wrong.')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const seedMore = async () => {
+    if (selected.size === 0) {
+      setError('Pick at least one category first.')
+      return
+    }
+    setSeedingNow(true)
+    setSeedingStatus('Pulling foundational papers — this can take 1–2 minutes…')
+    setError(null)
+    try {
+      const res = await authedFetch('/api/seed-classics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ categories: Array.from(selected) }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'failed')
+      setSeedingStatus(
+        `Done. Added ${data.ingested ?? 0} new foundational papers (skipped ${data.already_had ?? 0} already in library).`,
+      )
+    } catch (e: any) {
+      setError(`Seeding failed: ${e.message}`)
+      setSeedingStatus(null)
+    } finally {
+      setSeedingNow(false)
     }
   }
 
@@ -221,6 +274,46 @@ export default function OnboardingPage() {
           className="w-full border border-stone-300 rounded-lg p-3 text-sm font-mono focus:outline-none focus:border-ink"
           rows={4}
         />
+      </section>
+
+      <section className="mt-8 p-4 border border-stone-200 rounded-lg bg-stone-50">
+        <h2 className="text-sm font-medium uppercase tracking-wide text-muted mb-2">
+          Foundational papers
+        </h2>
+        <p className="text-xs text-muted mb-3 leading-relaxed">
+          Pull highly-cited papers from your selected categories via Semantic Scholar.
+          This gives you a strong base of canonical work alongside the daily fresh-from-arXiv feed.
+        </p>
+
+        {!isReturning && (
+          <label className="flex items-start gap-2 text-sm cursor-pointer">
+            <input
+              type="checkbox"
+              checked={seedClassics}
+              onChange={e => setSeedClassics(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              Seed my feed with ~80 foundational papers
+              <span className="text-muted"> (takes 1–2 min after saving)</span>
+            </span>
+          </label>
+        )}
+
+        {isReturning && (
+          <button
+            type="button"
+            onClick={seedMore}
+            disabled={seedingNow}
+            className="text-sm border border-ink text-ink rounded-lg px-4 py-2 hover:bg-ink hover:text-white transition disabled:opacity-50"
+          >
+            {seedingNow ? 'Pulling papers…' : 'Pull more foundational papers'}
+          </button>
+        )}
+
+        {seedingStatus && (
+          <p className="mt-3 text-xs text-emerald-800">{seedingStatus}</p>
+        )}
       </section>
 
       <section className="mt-8 grid grid-cols-2 gap-4">

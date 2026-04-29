@@ -17,6 +17,12 @@ function categoryColor(cat: string | null): string {
   return CATEGORY_COLORS[cat] ?? 'bg-stone-100 text-stone-700'
 }
 
+function formatCitations(n: number | null | undefined): string | null {
+  if (!n || n <= 0) return null
+  if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k cites`
+  return `${n} cites`
+}
+
 function relativeDate(iso: string | null): string {
   if (!iso) return ''
   const d = new Date(iso)
@@ -37,6 +43,7 @@ export default function Card({
 }) {
   const tldr = paper.abstract?.split('. ').slice(0, 2).join('. ') + (paper.abstract ? '.' : '')
   const venue = extractVenue(paper.journal_ref, paper.comment)
+  const cites = formatCitations(paper.citation_count)
 
   return (
     <div
@@ -55,11 +62,18 @@ export default function Card({
         {paper.title}
       </h3>
 
-      {venue && (
-        <span className="inline-block mt-1.5 text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
-          {venue}
-        </span>
-      )}
+      <div className="flex flex-wrap gap-1.5 mt-1.5">
+        {venue && (
+          <span className="inline-block text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+            {venue}
+          </span>
+        )}
+        {cites && (
+          <span className="inline-block text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+            {cites}
+          </span>
+        )}
+      </div>
 
       {tldr && (
         <p className="text-[12.5px] text-stone-700 mt-2 leading-snug line-clamp-4">

@@ -83,13 +83,28 @@ export default function DetailModal({
 
           {(() => {
             const venue = extractVenue(paper.journal_ref, paper.comment)
-            return venue ? (
-              <p className="text-sm text-emerald-800 mt-2">
-                <span className="text-xs uppercase tracking-wide text-emerald-700 font-medium mr-2">
-                  Published at
-                </span>
-                {venue}
-              </p>
+            const cites = paper.citation_count && paper.citation_count > 0
+              ? paper.citation_count.toLocaleString()
+              : null
+            return (venue || cites) ? (
+              <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+                {venue && (
+                  <span className="text-sm text-emerald-800">
+                    <span className="text-xs uppercase tracking-wide text-emerald-700 font-medium mr-2">
+                      Published at
+                    </span>
+                    {venue}
+                  </span>
+                )}
+                {cites && (
+                  <span className="text-sm text-amber-800">
+                    <span className="text-xs uppercase tracking-wide text-amber-700 font-medium mr-2">
+                      Citations
+                    </span>
+                    {cites}
+                  </span>
+                )}
+              </div>
             ) : null
           })()}
 

@@ -24,7 +24,7 @@ create table if not exists users (
 -- 2. papers — global. one paper, one row, regardless of user.
 -- =============================================================================
 create table if not exists papers (
-  id text primary key,                       -- arxiv id, e.g. "2401.12345"
+  id text primary key,                       -- arxiv id (e.g. "2401.12345") or "s2:..." for non-arXiv
   title text not null,
   authors text[] default '{}',
   abstract text,
@@ -34,12 +34,14 @@ create table if not exists papers (
   published_at timestamptz,
   journal_ref text,                          -- e.g. "NeurIPS 2024" if published
   comment text,                              -- author comment, often venue info
+  citation_count int,                        -- populated via Semantic Scholar seeding
   embedding vector(384),
   created_at timestamptz default now()
 );
 
 create index if not exists papers_published_idx on papers (published_at desc);
 create index if not exists papers_categories_idx on papers using gin (categories);
+create index if not exists papers_citations_idx on papers (citation_count desc nulls last);
 create index if not exists papers_embedding_idx
   on papers using ivfflat (embedding vector_cosine_ops) with (lists = 50);
 
@@ -122,11 +124,12 @@ create or replace function recommend_by_similarity(
   categories text[], primary_category text,
   pdf_url text, published_at timestamptz,
   journal_ref text, comment text,
+  citation_count int,
   similarity real
 ) as $$
   select
     p.id, p.title, p.authors, p.abstract, p.categories, p.primary_category,
-    p.pdf_url, p.published_at, p.journal_ref, p.comment,
+    p.pdf_url, p.published_at, p.journal_ref, p.comment, p.citation_count,
     1 - (p.embedding <=> user_vec) as similarity
   from papers p
   where p.embedding is not null
@@ -151,11 +154,12 @@ create or replace function recommend_random(
   id text, title text, authors text[], abstract text,
   categories text[], primary_category text,
   pdf_url text, published_at timestamptz,
-  journal_ref text, comment text
+  journal_ref text, comment text,
+  citation_count int
 ) as $$
   select
     p.id, p.title, p.authors, p.abstract, p.categories, p.primary_category,
-    p.pdf_url, p.published_at, p.journal_ref, p.comment
+    p.pdf_url, p.published_at, p.journal_ref, p.comment, p.citation_count
   from papers p
   where p.categories && user_cats
     and p.id not in (
